@@ -1,0 +1,52 @@
+{
+  "name": "node-apple-speech",
+  "version": "0.1.0",
+  "description": "Node.js module for Apple's SpeechAnalyzer transcription API with a whisper.node-compatible context surface.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Jhen <developer@jhen.me>",
+  "license": "MIT",
+  "scripts": {
+    "build": "npm run build:native && npm run build:js",
+    "build:js": "tsc -p tsconfig.json",
+    "build:native": "node scripts/build-helper.js",
+    "build-js": "npm run build:js",
+    "build-native": "npm run build:native",
+    "install": "node scripts/build-helper.js",
+    "prepack": "npm run build",
+    "release": "node scripts/release.js",
+    "test": "npm run build && node --test test/*.test.js",
+    "test:transcribe": "npm run build && RUN_APPLE_SPEECH_TRANSCRIBE=1 node --test test/transcribe.test.js",
+    "example:transcribe-data": "npm run build && node examples/transcribe-data.js",
+    "example:transcribe-file": "npm run build && node examples/transcribe-file.js",
+    "example:electron-main": "npm run build && npx --yes electron examples/electron-main.js"
+  },
+  "files": [
+    "build/Release/node-apple-speech-helper",
+    "examples",
+    "index.js",
+    "lib",
+    "native",
+    "scripts",
+    "src",
+    "tsconfig.json"
+  ],
+  "keywords": [
+    "apple",
+    "speech",
+    "speechanalyzer",
+    "speech-to-text",
+    "transcription",
+    "whisper"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "typescript": "^5.9.3"
+  }
+}
