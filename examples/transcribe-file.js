@@ -12,6 +12,20 @@ function printTiming(label, value) {
   process.stderr.write(`[perf] ${label}: ${formatMs(value)}\n`)
 }
 
+function getLanguage() {
+  return process.env.NODE_APPLE_SPEECH_LANGUAGE || 'en_US'
+}
+
+function getContextualStrings() {
+  const value = process.env.NODE_APPLE_SPEECH_CONTEXTUAL_STRINGS
+
+  if (!value) {
+    return undefined
+  }
+
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
 async function main() {
   const start = performance.now()
   const filePath = process.argv[2]
@@ -21,15 +35,18 @@ async function main() {
   }
 
   const initStart = performance.now()
-  const context = await initAppleSpeech({ language: 'en_US' })
+  const context = await initAppleSpeech({ language: getLanguage() })
   const initMs = performance.now() - initStart
 
   try {
     const transcribeStart = performance.now()
-    const { promise } = context.transcribeFile(path.resolve(filePath))
+    const { promise } = context.transcribeFile(path.resolve(filePath), {
+      contextualStrings: getContextualStrings(),
+    })
     const result = await promise
     const transcribeMs = performance.now() - transcribeStart
 
+    process.stderr.write(`[config] language: ${getLanguage()}\n`)
     printTiming('init-context', initMs)
     printTiming('transcribe', transcribeMs)
     if (result.duration > 0) {

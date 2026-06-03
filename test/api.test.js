@@ -28,6 +28,22 @@ test('AppleSpeechContext can be constructed directly', () => {
   assert.equal(context.getModelInfo().language, 'en_US')
 })
 
+test('NODE_APPLE_SPEECH_LANGUAGE provides default language', () => {
+  const previous = process.env.NODE_APPLE_SPEECH_LANGUAGE
+  process.env.NODE_APPLE_SPEECH_LANGUAGE = 'zh-TW'
+
+  try {
+    const context = new AppleSpeechContext({ prepare: false })
+    assert.equal(context.getModelInfo().language, 'zh_TW')
+  } finally {
+    if (previous == null) {
+      delete process.env.NODE_APPLE_SPEECH_LANGUAGE
+    } else {
+      process.env.NODE_APPLE_SPEECH_LANGUAGE = previous
+    }
+  }
+})
+
 test('WAV encoder and decoder round trip 16-bit PCM metadata', () => {
   const pcm = Buffer.alloc(16000 * 2)
   const wav = encodeWav(pcm, { sampleRate: 16000, channels: 1, bitsPerSample: 16 })

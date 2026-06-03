@@ -19,7 +19,10 @@ export interface NativeContextOptions {
   bitsPerSample?: number
   prepare?: boolean
   autoPrepare?: boolean
+  contextualStrings?: ContextualStrings
 }
+
+export type ContextualStrings = string[] | Record<string, string[]>
 
 export interface TranscribeOptions {
   language?: string
@@ -45,6 +48,7 @@ export interface TranscribeOptions {
   autoPrepare?: boolean
   timeoutMs?: number
   helperPath?: string
+  contextualStrings?: ContextualStrings
   onProgress?: (progress: number) => void
   onNewSegments?: (result: TranscribeNewSegmentsResult) => void
 }
@@ -158,12 +162,20 @@ function ensureHelper(options: HelperOptions = {}): string {
   throw new Error(`Native helper is missing. Run "npm run build" before using node-apple-speech. Checked: ${getHelperCandidates(options).join(', ')}`)
 }
 
-function normalizeLanguage(language?: string): string {
+function getDefaultLanguage(): string {
+  const language = process.env.NODE_APPLE_SPEECH_LANGUAGE?.trim()
+
   if (!language || language === 'auto') {
     return DEFAULT_LANGUAGE
   }
 
-  return String(language).replace(/-/g, '_')
+  return language
+}
+
+function normalizeLanguage(language?: string): string {
+  const normalized = !language || language === 'auto' ? getDefaultLanguage() : language
+
+  return String(normalized).replace(/-/g, '_')
 }
 
 function toBuffer(data: ArrayBuffer | ArrayBufferView | Buffer): Buffer {
@@ -190,6 +202,36 @@ function positiveInteger(value: number | undefined, fallback: number, name: stri
   }
 
   return normalized
+}
+
+function serializeContextualStrings(contextualStrings: ContextualStrings | undefined): string | undefined {
+  if (contextualStrings == null) {
+    return undefined
+  }
+
+  if (Array.isArray(contextualStrings)) {
+    const strings = contextualStrings.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    return strings.length > 0 ? JSON.stringify(strings) : undefined
+  }
+
+  if (typeof contextualStrings !== 'object') {
+    throw new TypeError('contextualStrings must be a string array or an object of string arrays')
+  }
+
+  const groups: Record<string, string[]> = {}
+
+  for (const [tag, strings] of Object.entries(contextualStrings)) {
+    if (!Array.isArray(strings)) {
+      throw new TypeError(`contextualStrings.${tag} must be an array of strings`)
+    }
+
+    const filtered = strings.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    if (filtered.length > 0) {
+      groups[tag] = filtered
+    }
+  }
+
+  return Object.keys(groups).length > 0 ? JSON.stringify(groups) : undefined
 }
 
 function slicePcmData(data: Buffer, options: SliceOptions): Buffer {
@@ -320,6 +362,11 @@ function runTranscription(filePath: string, options: TranscriptionRunOptions, cl
     args.push('--no-prepare')
   }
 
+  const contextualStrings = serializeContextualStrings(options.contextualStrings)
+  if (contextualStrings) {
+    args.push('--contextual-strings', contextualStrings)
+  }
+
   const child = spawn(helper, args, {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -425,6 +472,8 @@ export class AppleSpeechContext {
 
   private readonly helperPath?: string
 
+  private readonly contextualStrings?: ContextualStrings
+
   private released = false
 
   constructor(options: NativeContextOptions = {}) {
@@ -434,6 +483,7 @@ export class AppleSpeechContext {
     this.bitsPerSample = positiveInteger(options.bitsPerSample, 16, 'bitsPerSample')
     this.prepareByDefault = options.prepare !== false && options.autoPrepare !== false
     this.helperPath = options.helperPath
+    this.contextualStrings = options.contextualStrings
   }
 
   private assertActive(): void {
@@ -483,6 +533,7 @@ export class AppleSpeechContext {
       prepare: options.prepare ?? this.prepareByDefault,
       autoPrepare: options.autoPrepare ?? this.prepareByDefault,
       helperPath: options.helperPath ?? this.helperPath,
+      contextualStrings: options.contextualStrings ?? this.contextualStrings,
     }, tempPath)
 
     return {
@@ -527,6 +578,7 @@ export class AppleSpeechContext {
       prepare: options.prepare ?? this.prepareByDefault,
       autoPrepare: options.autoPrepare ?? this.prepareByDefault,
       helperPath: options.helperPath ?? this.helperPath,
+      contextualStrings: options.contextualStrings ?? this.contextualStrings,
     })
 
     return {

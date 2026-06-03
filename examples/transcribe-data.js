@@ -16,6 +16,10 @@ function printTiming(label, value) {
   process.stderr.write(`[perf] ${label}: ${formatMs(value)}\n`)
 }
 
+function getLanguage() {
+  return process.env.NODE_APPLE_SPEECH_LANGUAGE || 'en_US'
+}
+
 function audioDurationSeconds(wav) {
   return wav.data.length / (wav.channels * (wav.bitsPerSample / 8)) / wav.sampleRate
 }
@@ -76,7 +80,7 @@ async function main() {
   const wav = decodeWav(fs.readFileSync(wavPath))
   const readMs = performance.now() - readStart
   const initStart = performance.now()
-  const context = await initAppleSpeech({ language: 'en_US' })
+  const context = await initAppleSpeech({ language: getLanguage() })
   const initMs = performance.now() - initStart
 
   try {
@@ -97,6 +101,7 @@ async function main() {
     if (!input) {
       printTiming('fixture', fixtureMs)
     }
+    process.stderr.write(`[config] language: ${getLanguage()}\n`)
     printTiming('read-wav', readMs)
     printTiming('init-context', initMs)
     printTiming('transcribe', transcribeMs)

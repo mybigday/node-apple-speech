@@ -42,6 +42,7 @@ enum HelperError: LocalizedError {
   case unsupportedPlatform
   case unsupportedLocale(String)
   case invalidAudio(String)
+  case invalidContextualStrings(String)
   case assetUnsupported(String)
   case unknownAssetStatus
 
@@ -57,6 +58,8 @@ enum HelperError: LocalizedError {
       return "Locale not supported: \(language)"
     case .invalidAudio(let path):
       return "Invalid audio file: \(path)"
+    case .invalidContextualStrings(let reason):
+      return "Invalid contextual strings: \(reason)"
     case .assetUnsupported(let language):
       return "Assets not supported for locale: \(language)"
     case .unknownAssetStatus:
@@ -76,6 +79,41 @@ final class AppleSpeechEngine {
       reportingOptions: preset.reportingOptions.subtracting([.alternativeTranscriptions]),
       attributeOptions: preset.attributeOptions
     )
+  }
+
+  static func parseContextualStrings(_ raw: String?) throws -> [AnalysisContext.ContextualStringsTag: [String]] {
+    guard let raw, !raw.isEmpty else {
+      return [:]
+    }
+
+    guard let data = raw.data(using: .utf8) else {
+      throw HelperError.invalidContextualStrings("value is not valid UTF-8")
+    }
+
+    let value = try JSONSerialization.jsonObject(with: data)
+
+    if let strings = value as? [String] {
+      return [.general: strings.filter { !$0.isEmpty }]
+    }
+
+    guard let groups = value as? [String: Any] else {
+      throw HelperError.invalidContextualStrings("expected a JSON string array or object of string arrays")
+    }
+
+    var contextualStrings: [AnalysisContext.ContextualStringsTag: [String]] = [:]
+
+    for (tagName, groupValue) in groups {
+      guard let strings = groupValue as? [String] else {
+        throw HelperError.invalidContextualStrings("tag '\(tagName)' must be an array of strings")
+      }
+
+      let tag: AnalysisContext.ContextualStringsTag = tagName == "general"
+        ? .general
+        : AnalysisContext.ContextualStringsTag(tagName)
+      contextualStrings[tag] = strings.filter { !$0.isEmpty }
+    }
+
+    return contextualStrings
   }
 
   static func supportedLocale(for language: String) async throws -> Locale {
@@ -119,7 +157,7 @@ final class AppleSpeechEngine {
     }
   }
 
-  static func transcribe(fileURL: URL, language: String, autoPrepare: Bool) async throws -> TranscriptionOutput {
+  static func transcribe(fileURL: URL, language: String, autoPrepare: Bool, contextualStrings: [AnalysisContext.ContextualStringsTag: [String]]) async throws -> TranscriptionOutput {
     let supportedLocale = try await supportedLocale(for: language)
 
     if autoPrepare {
@@ -139,6 +177,12 @@ final class AppleSpeechEngine {
 
     let transcriber = createTranscriber(for: supportedLocale)
     let analyzer = SpeechAnalyzer(modules: [transcriber])
+
+    if !contextualStrings.isEmpty {
+      let context = AnalysisContext()
+      context.contextualStrings = contextualStrings
+      try await analyzer.setContext(context)
+    }
 
     let resultTask = Task { () throws -> [Segment] in
       var segments: [Segment] = []
@@ -253,7 +297,8 @@ func run(_ parsed: ParsedArguments) async throws {
     if #available(macOS 26.0, *) {
       let autoPrepare = !parsed.flags.contains("no-prepare")
       let fileURL = URL(fileURLWithPath: file)
-      try await writeJSON(AppleSpeechEngine.transcribe(fileURL: fileURL, language: language, autoPrepare: autoPrepare))
+      let contextualStrings = try AppleSpeechEngine.parseContextualStrings(parsed.options["contextual-strings"])
+      try await writeJSON(AppleSpeechEngine.transcribe(fileURL: fileURL, language: language, autoPrepare: autoPrepare, contextualStrings: contextualStrings))
     } else {
       throw HelperError.unsupportedPlatform
     }

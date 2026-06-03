@@ -108,6 +108,7 @@ test('transcribeFile recognizes generated macOS speech', { timeout: 240000 }, as
 
   try {
     const { promise } = context.transcribeFile(fixture.wav, {
+      contextualStrings: ['Apple Speech'],
       timeoutMs: 180000,
     })
     const result = await promise

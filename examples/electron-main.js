@@ -17,6 +17,10 @@ function printTiming(label, value) {
   process.stderr.write(`[perf] ${label}: ${formatMs(value)}\n`)
 }
 
+function getLanguage() {
+  return process.env.NODE_APPLE_SPEECH_LANGUAGE || 'en_US'
+}
+
 function commandExists(command) {
   return spawnSync('which', [command], { encoding: 'utf8' }).status === 0
 }
@@ -69,7 +73,7 @@ async function run() {
   try {
     const wav = decodeWav(fs.readFileSync(fixture.wav))
     const initStart = performance.now()
-    const context = await initAppleSpeech({ language: 'en_US' })
+    const context = await initAppleSpeech({ language: getLanguage() })
     const initMs = performance.now() - initStart
 
     try {
@@ -84,6 +88,7 @@ async function run() {
 
       process.stderr.write(`[electron] process.type: ${process.type}\n`)
       process.stderr.write(`[electron] version: ${process.versions.electron}\n`)
+      process.stderr.write(`[config] language: ${getLanguage()}\n`)
       printTiming('fixture', fixtureMs)
       printTiming('init-context', initMs)
       printTiming('transcribe', transcribeMs)
