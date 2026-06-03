@@ -1,6 +1,6 @@
 {
   "name": "node-apple-speech",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node.js module for Apple's SpeechAnalyzer transcription API with a whisper.node-compatible context surface.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
