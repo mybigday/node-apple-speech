@@ -8,9 +8,9 @@ The JavaScript API follows the [`whisper.node`](https://github.com/mybigday/whis
 const { initAppleSpeech } = require('node-apple-speech')
 
 const context = await initAppleSpeech({ language: 'en_US' })
-const { stop, promise } = context.transcribeData(pcm16Mono16kArrayBuffer, {
-  sampleRate: 16000,
-  channels: 1,
+const { stop, promise } = context.transcribeData(pcm16ArrayBuffer, {
+  sampleRate: 48000,
+  channels: 2,
   bitsPerSample: 16,
 })
 
@@ -32,6 +32,19 @@ await context.release()
   }>
 }
 ```
+
+## Audio Input Format
+
+`transcribeData(audioData, options)` accepts raw 16-bit PCM data. Set `sampleRate`, `channels`, and `bitsPerSample` to match the buffer.
+
+- `bitsPerSample` must be `16`.
+- Mono audio uses one signed little-endian PCM sample per frame.
+- Stereo audio is supported. Pass `channels: 2` and provide interleaved signed little-endian PCM samples: left frame 0, right frame 0, left frame 1, right frame 1, and so on.
+- More than two channels may be accepted by the JavaScript WAV wrapper, but only mono and stereo are currently verified.
+
+`transcribeFile(filePath, options)` reads through `AVAudioFile`, so it can transcribe mono or stereo files supported by AVFoundation.
+
+For realtime callers, make sure any upstream VAD, slicing, or duration calculation is channel-aware. If that pipeline assumes mono PCM16, downmix stereo capture to mono before calling `transcribeData`.
 
 ## Requirements
 
